@@ -1,0 +1,41 @@
+# Runs in the public Brady-Ball/iron-log repository after every deploy.
+# scripts/add-live-check.mjs copies this file and the e2e checks into each deploy.
+name: Live check (WebKit)
+
+on:
+  push:
+    branches: [gh-pages]
+  workflow_dispatch:
+
+jobs:
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Wait for the live link to serve this deploy
+        run: |
+          expected=$(grep -o 'assets/index-[^"]*\.js' index.html)
+          for attempt in $(seq 1 40); do
+            live=$(curl -s "https://brady-ball.github.io/iron-log/?check=$attempt" | grep -o 'assets/index-[^"]*\.js' || true)
+            if [ "$live" = "$expected" ]; then
+              echo "The live link serves $live"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "The live link never switched to $expected"
+          exit 1
+      - run: npm install --no-save @playwright/test@1.65.0
+      - run: npx playwright install --with-deps webkit
+      - run: npx playwright test
+        env:
+          BROWSER: webkit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: test-results/

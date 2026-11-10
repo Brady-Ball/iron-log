@@ -1,0 +1,111 @@
+import { expect, test, type Page } from '@playwright/test';
+
+// Each test starts in a fresh browser with nothing saved, so it never touches real data.
+
+interface PlannedExercise {
+  name: string;
+  sets: string;
+  reps: string;
+}
+
+async function planWorkout(page: Page, name: string, exercises: PlannedExercise[]) {
+  await page.getByRole('button', { name: '+ New workout' }).click();
+  await page.getByLabel('Workout name').fill(name);
+  for (const [index, exercise] of exercises.entries()) {
+    if (index > 0) {
+      await page.getByRole('button', { name: '+ Add exercise' }).click();
+    }
+    await page.getByLabel('Name', { exact: true }).nth(index).fill(exercise.name);
+    await page.getByLabel('Sets', { exact: true }).nth(index).fill(exercise.sets);
+    await page.getByLabel('Reps', { exact: true }).nth(index).fill(exercise.reps);
+  }
+  await page.getByRole('button', { name: 'Save workout' }).click();
+}
+
+async function openScreen(page: Page, name: string) {
+  await page.getByRole('button', { name: /^Menu/ }).click();
+  await page.getByRole('button', { name, exact: true }).click();
+}
+
+const pullDay: PlannedExercise[] = [
+  { name: 'Lat pulldown', sets: '2', reps: '8-10' },
+  { name: 'Back row', sets: '2', reps: '8-10' },
+  { name: 'Hammer curls', sets: '2', reps: '10-12' },
+];
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('./');
+});
+
+test('plans a workout and keeps it after the app is reopened', async ({ page }) => {
+  await planWorkout(page, 'Test day', [{ name: 'Chest press', sets: '2', reps: '8-10' }]);
+
+  await expect(page.getByText('2 × 8–10')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Test day')).toBeVisible();
+  await expect(page.getByText('2 × 8–10')).toBeVisible();
+});
+
+test('"Next up" follows an exercise done out of order', async ({ page }) => {
+  await planWorkout(page, 'Pull day', pullDay);
+  await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
+
+  await page.getByLabel('Hammer curls set 1 weight in pounds').fill('30');
+  await page.getByLabel('Hammer curls set 1 reps').fill('12');
+
+  const coach = page.getByRole('status', { name: 'Coach' });
+  await expect(coach).toContainText('Next up: Hammer curls, set 2 of 2');
+  await page.reload();
+  await expect(coach).toContainText('Next up: Hammer curls, set 2 of 2');
+});
+
+test('finishing a workout celebrates and adds it to History', async ({ page }) => {
+  await planWorkout(page, 'Pull day', pullDay);
+  await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
+  await page.getByLabel('Lat pulldown set 1 weight in pounds').fill('120');
+  await page.getByLabel('Lat pulldown set 1 reps').fill('10');
+
+  await page.getByRole('button', { name: 'Finish workout' }).click();
+  const celebration = page.getByRole('dialog');
+  await expect(celebration).toBeVisible();
+  await celebration.click();
+
+  await expect(page.getByRole('region', { name: 'History' })).toContainText('Pull day');
+});
+
+test('the food reminder opens Nutrition and shows what was eaten', async ({ page }) => {
+  const reminder = page.getByRole('region', { name: 'Food today' });
+  await expect(reminder).toContainText('Nothing logged today.');
+
+  await reminder.getByRole('button', { name: 'Log your food' }).click();
+  await page.getByRole('button', { name: '+ New food' }).click();
+  await page.getByLabel('Food', { exact: true }).fill('Protein shake');
+  await page.getByLabel('Calories', { exact: true }).fill('160');
+  await page.getByLabel('Protein (g)').fill('30');
+  await page.getByRole('button', { name: 'Save food' }).click();
+  await openScreen(page, 'Workouts');
+
+  await expect(reminder).toContainText('Today: 160 cal · 30 g protein');
+});
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`every screen opens from the menu and fits the phone (${colorScheme})`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ colorScheme });
+    await planWorkout(page, 'Pull day', pullDay);
+
+    for (const screen of ['Workouts', 'Progress', 'Schedule', 'Nutrition', 'Goals']) {
+      await openScreen(page, screen);
+      await expect(page.getByRole('button', { name: `Menu: ${screen}` })).toBeVisible();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `${screen} scrolls sideways`).toBeLessThanOrEqual(0);
+      await page.screenshot({
+        path: testInfo.outputPath(`${screen}-${colorScheme}.png`),
+        fullPage: true,
+      });
+    }
+  });
+}
