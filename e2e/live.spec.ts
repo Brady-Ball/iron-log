@@ -51,6 +51,21 @@ test('one tap on Finish, right after a set with others skipped, celebrates and a
   await expect(page.getByRole('region', { name: 'History' })).toContainText('Pull day');
 });
 
+test('a workout started from far down the list opens at the top', async ({ page }) => {
+  for (const name of ['Push day', 'Pull day', 'Leg day']) {
+    await planWorkout(page, name, pullDay);
+  }
+  const start = page.getByRole('button', { name: 'Start workout: Pull day' });
+  await start.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 200));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+  await start.click();
+
+  await expect(page.getByRole('heading', { name: 'Pull day', level: 1 })).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test('the food reminder opens Nutrition and shows what was eaten', async ({ page }) => {
   const reminder = page.getByRole('region', { name: 'Food today' });
   await expect(reminder).toContainText('Nothing logged today.');
