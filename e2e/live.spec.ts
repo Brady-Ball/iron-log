@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 // Each test starts in a fresh browser with nothing saved, so it never touches real data.
 
@@ -20,6 +20,19 @@ async function planWorkout(page: Page, name: string, exercises: PlannedExercise[
     await page.getByLabel('Reps', { exact: true }).nth(index).fill(exercise.reps);
   }
   await page.getByRole('button', { name: 'Save workout' }).click();
+}
+
+/** Presses down, pauses, and lifts, like a finger, so the page can move mid-tap as it would on a phone. */
+async function tapLikeAFinger(page: Page, target: Locator) {
+  await target.scrollIntoViewIfNeeded();
+  const box = await target.boundingBox();
+  if (box === null) {
+    throw new Error('Nothing to tap: the target is not on screen');
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(100);
+  await page.mouse.up();
 }
 
 async function openScreen(page: Page, name: string) {
@@ -59,13 +72,15 @@ test('"Next up" follows an exercise done out of order', async ({ page }) => {
   await expect(coach).toContainText('Next up: Hammer curls, set 2 of 2');
 });
 
-test('finishing a workout celebrates and adds it to History', async ({ page }) => {
+test('one tap on Finish, right after a set with others skipped, celebrates and adds it to History', async ({
+  page,
+}) => {
   await planWorkout(page, 'Pull day', pullDay);
   await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
   await page.getByLabel('Lat pulldown set 1 weight in pounds').fill('120');
   await page.getByLabel('Lat pulldown set 1 reps').fill('10');
 
-  await page.getByRole('button', { name: 'Finish workout' }).click();
+  await tapLikeAFinger(page, page.getByRole('button', { name: 'Finish workout' }));
   const celebration = page.getByRole('dialog');
   await expect(celebration).toBeVisible();
   await celebration.click();
