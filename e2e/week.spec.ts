@@ -159,9 +159,14 @@ test('a simulated week of workouts and food', async ({ page }) => {
 
     await openScreen(page, 'Workouts');
     await expect(reminder).toContainText('Nothing logged today.');
+    // A new week starts History empty; last week's workouts are kept on Progress.
     await expect(page.getByRole('region', { name: 'History' }).getByRole('listitem')).toHaveCount(
-      4,
+      0,
     );
+    await openScreen(page, 'Progress');
+    await expect(
+      page.getByRole('region', { name: 'Older workouts' }).getByRole('listitem'),
+    ).toHaveCount(4);
 
     await openScreen(page, 'Goals');
     // Week targets are rounded to plate steps, so two weeks can share one; check the week itself moved.
