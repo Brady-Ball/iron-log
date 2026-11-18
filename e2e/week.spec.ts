@@ -89,7 +89,7 @@ test('a simulated week of workouts and food', async ({ page }) => {
     await expect(reminder).toContainText('Today: 300 cal · 10 g protein');
   });
 
-  // The first time a lift is logged counts as its first PR, so Monday and Wednesday play the PR celebration.
+  // Monday is the first workout ever, so it gets the welcome; Wednesday's first pull lifts play NEW PR.
   await test.step('Monday 6 pm: push day out of order, one set skipped, one tap on Finish', async () => {
     await jumpTo(page, at(0, 18));
     await startWorkout(page, 'Push day');
@@ -97,7 +97,7 @@ test('a simulated week of workouts and food', async ({ page }) => {
     await expect(coach).toContainText('Next up: Pec fly, set 2 of 2');
     await logSet(page, 'Pec fly', 2, '40', '11');
     await logSet(page, 'Chest press', 1, '135', '8');
-    await finishWorkout(page, 'New PR');
+    await finishWorkout(page, 'First workout');
 
     await openScreen(page, 'Schedule');
     await expect(scheduleDay(page, 'Monday')).toContainText('🔥');
