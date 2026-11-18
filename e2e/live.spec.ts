@@ -102,3 +102,29 @@ for (const colorScheme of ['light', 'dark'] as const) {
     }
   });
 }
+
+test('the exercise being scrolled past keeps its name in view below the top bar', async ({
+  page,
+}) => {
+  await planWorkout(page, 'Pull day', pullDay);
+  await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
+  const bar = page.locator('.workout-bar');
+  const card = page.getByRole('region', { name: 'Back row' });
+  const barBottom = async () => (await bar.boundingBox())!.y + (await bar.boundingBox())!.height;
+
+  // Jump (not the page's smooth scroll) so Back row's card is 80 px under the stuck bar.
+  const barHeight = (await bar.boundingBox())!.height;
+  const cardTop = await card.evaluate(
+    (element) => element.getBoundingClientRect().top + window.scrollY,
+  );
+  await page.evaluate(
+    (top) => window.scrollTo({ top, behavior: 'instant' }),
+    cardTop - barHeight + 80,
+  );
+  expect((await card.boundingBox())!.y).toBeLessThan(await barBottom());
+
+  const name = card.getByRole('heading', { name: 'Back row' });
+  const nameBox = (await name.boundingBox())!;
+  expect(nameBox.y).toBeGreaterThanOrEqual((await barBottom()) - 1);
+  await expect(name).toBeInViewport();
+});
