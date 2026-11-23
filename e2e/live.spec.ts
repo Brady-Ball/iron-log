@@ -128,3 +128,48 @@ test('the exercise being scrolled past keeps its name in view below the top bar'
   expect(nameBox.y).toBeGreaterThanOrEqual((await barBottom()) - 1);
   await expect(name).toBeInViewport();
 });
+
+test('tapping "Next up" brings that set into view below the top bar and its stuck name', async ({
+  page,
+}) => {
+  // A card in the middle, since the last one can only scroll as far as the page ends.
+  await planWorkout(page, 'Pull day', [
+    ...pullDay,
+    { name: 'Face pulls', sets: '3', reps: '12-15' },
+  ]);
+  await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
+  for (const set of ['Lat pulldown set 1', 'Lat pulldown set 2', 'Back row set 1']) {
+    await page.getByRole('button', { name: `Log ${set} as planned` }).click();
+  }
+  // Back to the top, so the last card is far below.
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+
+  await tapLikeAFinger(page, page.getByRole('button', { name: /Next up: Back row, set 2/ }));
+
+  const row = page.locator('.set-row', {
+    has: page.getByLabel('Back row set 2 weight in pounds'),
+  });
+  await expect(row).toHaveClass(/jumped/);
+  await expect(row).toBeInViewport({ ratio: 1 });
+  const name = page.getByRole('region', { name: 'Back row' }).getByRole('heading');
+  // Wait for the smooth scroll to settle (the page stops moving), then check nothing stuck covers the row.
+  let lastScroll = -1;
+  await expect
+    .poll(
+      async () => {
+        const scroll = await page.evaluate(() => window.scrollY);
+        const settled = scroll === lastScroll;
+        lastScroll = scroll;
+        return settled;
+      },
+      { intervals: [200], timeout: 5000 },
+    )
+    .toBe(true);
+  const bar = (await page.locator('.workout-bar').boundingBox())!;
+  const rowTop = (await row.boundingBox())!.y;
+  const nameBox = (await name.boundingBox())!;
+  expect(rowTop).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+  expect(rowTop).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+  // And not far down the screen either: right below the name.
+  expect(rowTop).toBeLessThan(nameBox.y + nameBox.height + 60);
+});
