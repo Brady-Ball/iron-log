@@ -127,6 +127,13 @@ test('the exercise being scrolled past keeps its name in view below the top bar'
   const nameBox = (await name.boundingBox())!;
   expect(nameBox.y).toBeGreaterThanOrEqual((await barBottom()) - 1);
   await expect(name).toBeInViewport();
+  // While stuck it has an edge, so what slides under it reads as scrolling, not a glitch.
+  await expect(name).toHaveAttribute('data-stuck', 'true');
+  expect(await name.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
+
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(name).not.toHaveAttribute('data-stuck', 'true');
+  expect(await name.evaluate((element) => getComputedStyle(element).boxShadow)).toBe('none');
 });
 
 test('tapping "Next up" brings that set into view below the top bar and its stuck name', async ({
@@ -170,6 +177,12 @@ test('tapping "Next up" brings that set into view below the top bar and its stuc
   const nameBox = (await name.boundingBox())!;
   expect(rowTop).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
   expect(rowTop).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
-  // And not far down the screen either: right below the name.
-  expect(rowTop).toBeLessThan(nameBox.y + nameBox.height + 60);
+  // Right below the name, with no strip of the set before it peeking out between them.
+  expect(rowTop).toBeLessThanOrEqual(nameBox.y + nameBox.height + 8);
+  const setBefore = page.locator('.set-row', {
+    has: page.getByLabel('Back row set 1 weight in pounds'),
+  });
+  expect(
+    (await setBefore.boundingBox())!.y + (await setBefore.boundingBox())!.height,
+  ).toBeLessThanOrEqual(nameBox.y + nameBox.height);
 });
