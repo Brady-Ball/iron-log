@@ -66,7 +66,7 @@ test('a workout started from far down the list opens at the top', async ({ page 
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
-test('the food reminder opens Nutrition and shows what was eaten', async ({ page }) => {
+test('the food reminder opens Food and shows what was eaten', async ({ page }) => {
   const reminder = page.getByRole('region', { name: 'Food today' });
   await expect(reminder).toContainText('Nothing logged today.');
 
@@ -88,7 +88,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });
     await planWorkout(page, 'Pull day', pullDay);
 
-    for (const screen of ['Workouts', 'Progress', 'Schedule', 'Nutrition', 'Goals']) {
+    for (const screen of ['Workouts', 'Progress', 'Schedule', 'Food', 'Goals']) {
       await openScreen(page, screen);
       await expect(page.getByRole('button', { name: `Menu: ${screen}` })).toBeVisible();
       const overflow = await page.evaluate(
