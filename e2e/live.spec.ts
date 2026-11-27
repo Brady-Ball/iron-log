@@ -186,3 +186,34 @@ test('tapping "Next up" brings that set into view below the top bar and its stuc
     (await setBefore.boundingBox())!.y + (await setBefore.boundingBox())!.height,
   ).toBeLessThanOrEqual(nameBox.y + nameBox.height);
 });
+
+test('the Exercises menu jumps to any card, just below the top bar', async ({ page }) => {
+  await planWorkout(page, 'Pull day', [
+    ...pullDay,
+    { name: 'Face pulls', sets: '3', reps: '12-15' },
+  ]);
+  await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
+
+  await tapLikeAFinger(page, page.getByRole('button', { name: 'Exercises' }));
+  await tapLikeAFinger(page, page.getByRole('button', { name: /^Jump to Hammer curls/ }));
+
+  await expect(page.getByRole('list', { name: 'Exercises' })).toBeHidden();
+  const name = page.getByRole('region', { name: 'Hammer curls' }).getByRole('heading');
+  // Wait for the smooth scroll to settle, then check the card's name sits just under the bar.
+  let lastScroll = -1;
+  await expect
+    .poll(
+      async () => {
+        const scroll = await page.evaluate(() => window.scrollY);
+        const settled = scroll === lastScroll;
+        lastScroll = scroll;
+        return settled;
+      },
+      { intervals: [200], timeout: 5000 },
+    )
+    .toBe(true);
+  const bar = (await page.locator('.workout-bar').boundingBox())!;
+  const nameTop = (await name.boundingBox())!.y;
+  expect(nameTop).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+  expect(nameTop).toBeLessThan(bar.y + bar.height + 60);
+});
