@@ -217,3 +217,19 @@ test('the Exercises menu jumps to any card, just below the top bar', async ({ pa
   expect(nameTop).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
   expect(nameTop).toBeLessThan(bar.y + bar.height + 60);
 });
+
+test('a new workout shows Weight beside Reps, without scrolling', async ({ page }) => {
+  await page.getByRole('button', { name: '+ New workout' }).click();
+
+  const reps = page.getByLabel('Reps', { exact: true });
+  const weight = page.getByLabel('Weight (lb)', { exact: true });
+  // On the first iPhone SE (568 px tall) even Sets starts below the edge, so only taller phones,
+  // such as the iPhone 13 the personas used, are held to "no scrolling".
+  if (page.viewportSize()!.height >= 600) {
+    await expect(weight).toBeInViewport({ ratio: 1 });
+  }
+  const repsBox = (await reps.boundingBox())!;
+  const weightBox = (await weight.boundingBox())!;
+  expect(Math.abs(weightBox.y - repsBox.y)).toBeLessThan(2);
+  expect(weightBox.x).toBeGreaterThan(repsBox.x + repsBox.width);
+});
