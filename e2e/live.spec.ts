@@ -233,3 +233,17 @@ test('a new workout shows Weight beside Reps, without scrolling', async ({ page 
   expect(Math.abs(weightBox.y - repsBox.y)).toBeLessThan(2);
   expect(weightBox.x).toBeGreaterThan(repsBox.x + repsBox.width);
 });
+
+test('starting a workout shows set 1 and its ✓ without scrolling', async ({ page }) => {
+  await planWorkout(page, 'Pull day', pullDay);
+  await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
+
+  await expect(
+    page.getByRole('button', { name: 'Log Lat pulldown set 1 as planned' }),
+  ).toBeInViewport({ ratio: 1 });
+  // The instructions start folded, one tap away.
+  const howTo = page.getByText('How logging works');
+  await expect(page.getByText(/Grey numbers are the plan/)).toBeHidden();
+  await howTo.click();
+  await expect(page.getByText(/Grey numbers are the plan/)).toBeVisible();
+});
