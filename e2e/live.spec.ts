@@ -267,3 +267,30 @@ test('what is left of a food goal reads as large and dark as the total', async (
   expect(leftStyle.size).toBe(totalStyle.size);
   expect(leftStyle.color).toBe(totalStyle.color);
 });
+
+test('jumping to the last card puts it under the top bar, with no card above showing', async ({
+  page,
+}) => {
+  await planWorkout(page, 'Pull day', pullDay);
+  await page.getByRole('button', { name: 'Start workout: Pull day' }).click();
+
+  await tapLikeAFinger(page, page.getByRole('button', { name: 'Exercises' }));
+  await tapLikeAFinger(page, page.getByRole('button', { name: /^Jump to Hammer curls/ }));
+
+  let lastScroll = -1;
+  await expect
+    .poll(
+      async () => {
+        const scroll = await page.evaluate(() => window.scrollY);
+        const settled = scroll === lastScroll;
+        lastScroll = scroll;
+        return settled;
+      },
+      { intervals: [200], timeout: 5000 },
+    )
+    .toBe(true);
+  const bar = (await page.locator('.workout-bar').boundingBox())!;
+  const card = (await page.getByRole('region', { name: 'Hammer curls' }).boundingBox())!;
+  expect(card.y).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+  expect(card.y).toBeLessThan(bar.y + bar.height + 20);
+});
