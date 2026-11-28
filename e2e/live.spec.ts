@@ -247,3 +247,23 @@ test('starting a workout shows set 1 and its ✓ without scrolling', async ({ pa
   await howTo.click();
   await expect(page.getByText(/Grey numbers are the plan/)).toBeVisible();
 });
+
+test('what is left of a food goal reads as large and dark as the total', async ({ page }) => {
+  await openScreen(page, 'Food');
+  await page.getByRole('button', { name: 'Add daily goals (optional)' }).click();
+  await page.getByLabel('Protein goal (g)').fill('160');
+  await page.getByRole('button', { name: 'Save goals' }).click();
+
+  const totals = page.getByRole('region', { name: "Today's totals" });
+  const left = totals.getByText('160 g left');
+  const total = totals.getByText('0 / 160 g');
+  const style = (locator: typeof left) =>
+    locator.evaluate((element) => {
+      const computed = getComputedStyle(element);
+      return { size: computed.fontSize, color: computed.color };
+    });
+  const leftStyle = await style(left);
+  const totalStyle = await style(total);
+  expect(leftStyle.size).toBe(totalStyle.size);
+  expect(leftStyle.color).toBe(totalStyle.color);
+});
